@@ -128,7 +128,7 @@
     <ClCompile Include="AudioFile.cpp" />
     <ClCompile Include="Generator.cpp" />
     <ClCompile Include="IOUtils.cpp" />
-    <ClCompile Include="maincpp.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="PlotDrawer.cpp" />
   </ItemGroup>
   <ItemGroup>
