@@ -1,9 +1,13 @@
 #pragma once
 #include <vector>
 
-struct Generator
+/*
+I guess not needed offline generator. 
+I won't remove it until I am not 100% sure it's redundant.
+*/
+namespace Generator
 {
-	static std::vector<double> generateWhiteNoise(float time, uint32_t frequnecy = 44100);
-	static std::vector<double> generateWhiteNoise(float time, float amplitude, uint32_t frequnecy = 44100);
+	std::vector<float> generateWhiteNoise(float time, uint32_t frequnecy = 44100);
+	std::vector<float> generateWhiteNoise(float time, float amplitude, uint32_t frequnecy = 44100);
 };
 
