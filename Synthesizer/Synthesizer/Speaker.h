@@ -1,8 +1,19 @@
 #pragma once
 #include <vector>
+#include "portaudio.h"
 
-namespace Speaker
+class Speaker
 {
+private:
+	PaStream* _stream;
+
+public:
+	Speaker();
+	~Speaker();
+
 	void play();
+
+private:
+	void Terminate(const PaError& err);
 };
 

@@ -132,7 +132,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AudioFile.cpp" />
-    <ClCompile Include="Generator.cpp" />
     <ClCompile Include="IOUtils.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PlotDrawer.cpp" />

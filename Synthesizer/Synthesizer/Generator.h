@@ -1,13 +1,22 @@
 #pragma once
 #include <vector>
+#include <array>
+#include <random>
 
-/*
-I guess not needed offline generator. 
-I won't remove it until I am not 100% sure it's redundant.
-*/
 namespace Generator
 {
-	std::vector<float> generateWhiteNoise(float time, uint32_t frequnecy = 44100);
-	std::vector<float> generateWhiteNoise(float time, float amplitude, uint32_t frequnecy = 44100);
+	static std::random_device rd;
+	static std::mt19937 gen(rd());
+
+	template<size_t _Size>
+	auto generateWhiteNoise(float amplitude)
+	{
+		float half_amplitude = amplitude / 2.0f;
+		std::uniform_real_distribution<float> dis(-half_amplitude, half_amplitude);
+		std::array<float, _Size> result;
+		std::generate(result.begin(), result.end(), [&dis]() {return dis(gen); });
+		return result;
+	}
+
 };
 

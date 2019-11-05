@@ -5,7 +5,9 @@
 
 int main()
 {
-	Speaker::play();
+	Speaker speaker;
+
+	speaker.play();
 
 	return 0;
 }
