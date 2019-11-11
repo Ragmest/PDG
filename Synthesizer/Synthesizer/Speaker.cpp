@@ -9,10 +9,12 @@ namespace {
 	constexpr uint32_t SAMPLE_RATE(44100);
 	constexpr uint32_t FRAMES_PER_BUFFER(1024);
 	constexpr float M_PI(3.14159265f);
-	constexpr uint32_t TABLE_SIZE(200u);
 }
 
-Speaker::Speaker()
+Speaker::Speaker() :
+	_stream(nullptr),
+	_globalTime(0.0),
+	_timeStep(1.0/SAMPLE_RATE)
 {
 	PaStreamParameters outputParameters;
 	PaError err;
@@ -53,7 +55,9 @@ Speaker::~Speaker()
 	printf("Test finished.\n");
 }
 
-void Speaker::play()
+#include <iostream>
+
+void Speaker::play(std::function<float(float)> sampleGenerator)
 {
 	PaError err;
 	float buffer[FRAMES_PER_BUFFER][2]; /* stereo output buffer */
@@ -62,12 +66,13 @@ void Speaker::play()
 	if (err != paNoError) Terminate(err);
 
 	while (true)
-	{
-		auto arr = Generator::generateWhiteNoise<1024u>(0.5f);
-		for (uint32_t j = 0; j < FRAMES_PER_BUFFER; ++j)
+	{	
+		for (int i = 0; i < FRAMES_PER_BUFFER; i++)
 		{
-			buffer[j][0] = arr[j];  /* left */
-			buffer[j][1] = arr[j];  /* right */
+			_globalTime += _timeStep;
+			auto generatedSample = sampleGenerator(_globalTime);
+			buffer[i][0] = generatedSample;  /* left */
+			buffer[i][1] = generatedSample;  /* right */
 		}
 
 		err = Pa_WriteStream(_stream, buffer, FRAMES_PER_BUFFER);
@@ -92,4 +97,3 @@ void Speaker::Terminate(const PaError& err)
 	}
 	Pa_Terminate();
 }
-
