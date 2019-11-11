@@ -12,9 +12,11 @@ struct Note
 	int id;
 	double on;
 	double off;
+	double amplitude;
 	bool active;
 
-	Note(int id, double on, double off, bool active) : id(id), on(on), off(off), active(active) {}
+	Note(int id, double on, double off, double amplitude, bool active) 
+		: id(id), on(on), off(off), amplitude(amplitude), active(active) {}
 };
 
 struct EnvelopeS
@@ -34,13 +36,16 @@ struct EnvelopeS
 	{
 	}
 
-	double getAmplitude(Note& note, double time)
+	void updateAmplitude(Note& note, double time)
 	{
 		double amplitude = 0.0;
 		double releaseAmplitude = 0.0;
 
 		if (note.on > note.off)
 		{
+			if(amplitude > 0.0)
+			note.amplitude / startAmplitude;
+
 			double dTime = time - note.on;
 			if (dTime <= attackTime)
 			{
@@ -60,14 +65,6 @@ struct EnvelopeS
 		else
 		{
 			double dTime = time - note.off;
-			//if (dTime <= attackTime)
-			//	releaseAmplitude = (dTime / attackTime) * startAmplitude;
-
-			//if (dTime > attackTime&& dTime <= (attackTime + decayTime))
-			//	releaseAmplitude = ((dTime - attackTime) / decayTime) * (sustainAmplitude - startAmplitude) + startAmplitude;
-
-			//if (dTime > (attackTime + decayTime))
-			//	releaseAmplitude = sustainAmplitude;
 
 			amplitude = ((dTime) / releaseTime) * (0.0 - sustainAmplitude) + sustainAmplitude;
 		}
@@ -75,12 +72,12 @@ struct EnvelopeS
 		if (amplitude <= 0.0001)
 			amplitude = 0.0;
 
-		//if (amplitude == 0.0 && note.off > note.on)
-		//{
-		//	note.active = false;
-		//}
+		if (amplitude == 0.0 && note.off > note.on)
+		{
+			note.active = false;
+		}
 
-		return amplitude;
+		note.amplitude = amplitude;
 	}
 };
 
@@ -101,13 +98,17 @@ float sound(float time)
 {
 	float out = 0.0f;
 	auto exponent = [](int k) { return static_cast<float>(k - 12)* inverse(12.0f); };
-	//noteLock.lock();
+	noteLock.lock();
 	for (auto& note : notes)
 	{
-		out += envelope.getAmplitude(note, time) * std::sin(OCTAVE_BASE_FREQ * pow(2.0f, exponent(note.id)) * 2.0f * PI * time);
+		if (!note.active)
+			continue;
+
+		envelope.updateAmplitude(note, time);
+		out += note.amplitude * std::sin(OCTAVE_BASE_FREQ * pow(2.0f, exponent(note.id)) * 2.0f * PI * time);
 	}
 	//std::remove_if(notes.begin(), notes.end(), [](const auto& note) { return !note.active; });
-	//noteLock.unlock();
+	noteLock.unlock();
 	return out * 0.2f;
 }
 
@@ -116,7 +117,7 @@ int main()
 	Speaker speaker;
 
 	std::cout << "\n" <<
-		"| |   |   |   |   |   | |   |   |   |   | |   | |   |   |   |" << "\n" <<
+		"  |   |   |   |   |   | |   |   |   |   | |   | |   |   |   |" << "\n" <<
 		"| |   | S |   |   | F | | G |   |   | J | | K | | L |   |   |" << "\n" <<
 		"| |   |___|   |   |___| |___|   |   |___| |___| |___|   |   |__" << "\n" <<
 		"| |     |     |     |     |     |     |     |     |     |     |" << "\n" <<
@@ -134,12 +135,12 @@ int main()
 			auto keyState = GetAsyncKeyState((unsigned char)("ZSXCFVGBNJMK\xbcL\xbe\xbf"[k]));
 			auto now = speaker.getTime();
 			auto noteFound = std::find_if(notes.begin(), notes.end(), [&k](const auto& note) { return note.id == k; });
-			//noteLock.lock();
+			noteLock.lock();
 			if (noteFound == notes.end())
 			{
 				if (keyPressed(keyState))
 				{
-					notes.emplace_back(k, now, 0.0, true);
+					notes.emplace_back(k, now, 0.0, 0.0, true);
 				}
 			}
 			else
@@ -158,7 +159,7 @@ int main()
 						noteFound->off = now;
 				}
 			}
-			//noteLock.unlock();
+			noteLock.unlock();
 		}
 	}
 
