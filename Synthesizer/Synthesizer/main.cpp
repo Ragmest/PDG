@@ -5,6 +5,17 @@
 #include <atomic>
 #include <iostream>
 #include <Windows.h>
+#include <mutex>
+
+struct Note
+{
+	int id;
+	double on;
+	double off;
+	bool active;
+
+	Note(int id, double on, double off, bool active) : id(id), on(on), off(off), active(active) {}
+};
 
 struct EnvelopeS
 {
@@ -13,80 +24,72 @@ struct EnvelopeS
 	double sustainAmplitude;
 	double releaseTime;
 	double startAmplitude;
-	double triggerOffTime;
-	double triggerOnTime;
-	bool noteOn;
 
 	EnvelopeS() :
 		attackTime(0.10),
 		decayTime(0.01),
 		startAmplitude(1.0),
 		sustainAmplitude(0.8),
-		releaseTime(0.20),
-		noteOn(false),
-		triggerOffTime(0.0),
-		triggerOnTime(0.0)
+		releaseTime(0.20)
 	{
 	}
 
-	// Call when key is pressed
-	void NoteOn(double dTimeOn)
+	double getAmplitude(Note& note, double time)
 	{
-		triggerOnTime = dTimeOn;
-		noteOn = true;
-	}
+		double amplitude = 0.0;
+		double releaseAmplitude = 0.0;
 
-	// Call when key is released
-	void NoteOff(double dTimeOff)
-	{
-		triggerOffTime = dTimeOff;
-		noteOn = false;
-	}
-
-	// Get the correct amplitude at the requested point in time
-	double GetAmplitude(double dTime)
-	{
-		double dAmplitude = 0.0;
-		double dLifeTime = dTime - triggerOnTime;
-
-		if (noteOn)
+		if (note.on > note.off)
 		{
-			if (dLifeTime <= attackTime)
+			double dTime = time - note.on;
+			if (dTime <= attackTime)
 			{
-				// In attack Phase - approach max amplitude
-				dAmplitude = (dLifeTime / attackTime) * startAmplitude;
+				amplitude = (dTime / attackTime) * startAmplitude;
 			}
 
-			if (dLifeTime > attackTime&& dLifeTime <= (attackTime + decayTime))
+			if (dTime > attackTime&& dTime <= (attackTime + decayTime))
 			{
-				// In decay phase - reduce to sustained amplitude
-				dAmplitude = ((dLifeTime - attackTime) / decayTime) * (sustainAmplitude - startAmplitude) + startAmplitude;
+				amplitude = ((dTime - attackTime) / decayTime) * (sustainAmplitude - startAmplitude) + startAmplitude;
 			}
 
-			if (dLifeTime > (attackTime + decayTime))
+			if (dTime > (attackTime + decayTime))
 			{
-				// In sustain phase - dont change until note released
-				dAmplitude = sustainAmplitude;
+				amplitude = sustainAmplitude;
 			}
 		}
 		else
 		{
-			// Note has been released, so in release phase
-			dAmplitude = ((dTime - triggerOffTime) / releaseTime) * (0.0 - sustainAmplitude) + sustainAmplitude;
+			double dTime = time - note.off;
+			//if (dTime <= attackTime)
+			//	releaseAmplitude = (dTime / attackTime) * startAmplitude;
+
+			//if (dTime > attackTime&& dTime <= (attackTime + decayTime))
+			//	releaseAmplitude = ((dTime - attackTime) / decayTime) * (sustainAmplitude - startAmplitude) + startAmplitude;
+
+			//if (dTime > (attackTime + decayTime))
+			//	releaseAmplitude = sustainAmplitude;
+
+			amplitude = ((dTime) / releaseTime) * (0.0 - sustainAmplitude) + sustainAmplitude;
 		}
 
-		// Amplitude should not be negative
-		if (dAmplitude <= 0.0001)
-			dAmplitude = 0.0;
+		if (amplitude <= 0.0001)
+			amplitude = 0.0;
 
-		return dAmplitude;
+		//if (amplitude == 0.0 && note.off > note.on)
+		//{
+		//	note.active = false;
+		//}
+
+		return amplitude;
 	}
 };
 
 namespace {
-	std::atomic<float> dFrequencyOutput = 0.0f;
-	const float dOctaveBaseFrequency = 440.0f;
+	constexpr float PI(3.14159265f);
+	constexpr float OCTAVE_BASE_FREQ(440.0f);
 	EnvelopeS envelope;
+	std::vector<Note> notes;
+	std::mutex noteLock;
 }
 
 constexpr float inverse(float val)
@@ -94,46 +97,68 @@ constexpr float inverse(float val)
 	return 1.0f / 12.0f;
 }
 
-
-float sineGen(float time)
+float sound(float time)
 {
-	return envelope.GetAmplitude(time) * std::sin(dFrequencyOutput * 2.0f * 3.14159f * time);
+	float out = 0.0f;
+	auto exponent = [](int k) { return static_cast<float>(k - 12)* inverse(12.0f); };
+	//noteLock.lock();
+	for (auto& note : notes)
+	{
+		out += envelope.getAmplitude(note, time) * std::sin(OCTAVE_BASE_FREQ * pow(2.0f, exponent(note.id)) * 2.0f * PI * time);
+	}
+	//std::remove_if(notes.begin(), notes.end(), [](const auto& note) { return !note.active; });
+	//noteLock.unlock();
+	return out * 0.2f;
 }
 
 int main()
 {
 	Speaker speaker;
 
-	std::thread speakerThread([&speaker]() { speaker.play(&sineGen); });
-	int currentKey = -1;
-	bool keyPressed = false;
-	auto exponent = [](int k) { return static_cast<float>(k - 12) * inverse(12.0f); };
+	std::cout << "\n" <<
+		"| |   |   |   |   |   | |   |   |   |   | |   | |   |   |   |" << "\n" <<
+		"| |   | S |   |   | F | | G |   |   | J | | K | | L |   |   |" << "\n" <<
+		"| |   |___|   |   |___| |___|   |   |___| |___| |___|   |   |__" << "\n" <<
+		"| |     |     |     |     |     |     |     |     |     |     |" << "\n" <<
+		"| |  Z  |  X  |  C  |  V  |  B  |  N  |  M  |  ,  |  .  |  /  |" << "\n" <<
+		"| |_____|_____|_____|_____|_____|_____|_____|_____|_____|_____|" << "\n" <<
+		"|/_____/_____/_____/_____/_____/_____/_____/_____/_____/_____/" << "\n" << "\n";
+
+	std::thread speakerThread([&speaker]() { speaker.play(&sound); });
+
+	auto keyPressed = [](SHORT keyState) { return keyState & 0x8000; };
 	while (true)
 	{
-		keyPressed = false;
 		for (int k = 0; k < 16; k++)
 		{
-			if (GetAsyncKeyState((unsigned char)("ZSXCFVGBNJMK\xbcL\xbe\xbf"[k])) & 0x8000)
+			auto keyState = GetAsyncKeyState((unsigned char)("ZSXCFVGBNJMK\xbcL\xbe\xbf"[k]));
+			auto now = speaker.getTime();
+			auto noteFound = std::find_if(notes.begin(), notes.end(), [&k](const auto& note) { return note.id == k; });
+			//noteLock.lock();
+			if (noteFound == notes.end())
 			{
-				if (currentKey != k)
+				if (keyPressed(keyState))
 				{
-					dFrequencyOutput = dOctaveBaseFrequency * pow(2.0f, exponent(k));
-					envelope.NoteOn(speaker.getTime());
-					currentKey = k;
+					notes.emplace_back(k, now, 0.0, true);
 				}
-
-				keyPressed = true;
 			}
-		}
-
-		if (!keyPressed)
-		{
-			if (currentKey != -1)
+			else
 			{
-				envelope.NoteOff(speaker.getTime());
-				currentKey = -1;
+				if (keyPressed(keyState))
+				{
+					if (noteFound->off > noteFound->on)
+					{
+						noteFound->on = now;
+						noteFound->active = true;
+					}
+				}
+				else
+				{
+					if(noteFound->off < noteFound->on)
+						noteFound->off = now;
+				}
 			}
-
+			//noteLock.unlock();
 		}
 	}
 

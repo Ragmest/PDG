@@ -8,7 +8,6 @@
 namespace {
 	constexpr uint32_t SAMPLE_RATE(44100);
 	constexpr uint32_t FRAMES_PER_BUFFER(1024);
-	constexpr float M_PI(3.14159265f);
 }
 
 Speaker::Speaker() :
