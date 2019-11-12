@@ -15,7 +15,7 @@ struct Note
 	double amplitude;
 	bool active;
 
-	Note(int id, double on, double off, double amplitude, bool active) 
+	Note(int id, double on, double off, double amplitude, bool active)
 		: id(id), on(on), off(off), amplitude(amplitude), active(active) {}
 };
 
@@ -43,8 +43,8 @@ struct EnvelopeS
 
 		if (note.on > note.off)
 		{
-			if(amplitude > 0.0)
-			note.amplitude / startAmplitude;
+			if (amplitude > 0.0)
+				note.amplitude / startAmplitude;
 
 			double dTime = time - note.on;
 			if (dTime <= attackTime)
@@ -87,17 +87,19 @@ namespace {
 	EnvelopeS envelope;
 	std::vector<Note> notes;
 	std::mutex noteLock;
-}
 
-constexpr float inverse(float val)
-{
-	return 1.0f / 12.0f;
+	constexpr float inverse(float val) { return 1.0f / 12.0f; }
+	constexpr float constFactor() { return OCTAVE_BASE_FREQ * 2.0f * PI; };
+	auto exponent = [](int k) { return static_cast<float>(k - 12)* inverse(12.0f); };
+
+	auto SIN = [](int id, float time) { return std::sin(constFactor() * pow(2.0f, exponent(id)) * time); };
+	auto SQUERE = [](int id, float time) { return SIN(id, time) > 0.0f ? 1.0f : -1.0f; };
+	auto TRIANGLE = [](int id, float time) { return std::asin(SIN(id, time)) * (2.0f * PI); };
 }
 
 float sound(float time)
 {
 	float out = 0.0f;
-	auto exponent = [](int k) { return static_cast<float>(k - 12)* inverse(12.0f); };
 	noteLock.lock();
 	for (auto& note : notes)
 	{
@@ -105,7 +107,8 @@ float sound(float time)
 			continue;
 
 		envelope.updateAmplitude(note, time);
-		out += note.amplitude * std::sin(OCTAVE_BASE_FREQ * pow(2.0f, exponent(note.id)) * 2.0f * PI * time);
+		out += note.amplitude * SQUERE(note.id, time);
+		out += note.amplitude * SIN(note.id, time);
 	}
 	//std::remove_if(notes.begin(), notes.end(), [](const auto& note) { return !note.active; });
 	noteLock.unlock();
@@ -155,7 +158,7 @@ int main()
 				}
 				else
 				{
-					if(noteFound->off < noteFound->on)
+					if (noteFound->off < noteFound->on)
 						noteFound->off = now;
 				}
 			}
