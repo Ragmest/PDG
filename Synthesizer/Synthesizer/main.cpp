@@ -7,6 +7,8 @@
 #include <Windows.h>
 #include <mutex>
 
+struct EnvelopeS;
+
 struct Note
 {
 	int id;
@@ -79,6 +81,11 @@ struct EnvelopeS
 
 		note.amplitude = amplitude;
 	}
+
+	void setTimeOnWithOffset(double time, Note& note)
+	{
+		note.on = time - (note.amplitude / startAmplitude) * attackTime;
+	}
 };
 
 namespace {
@@ -150,10 +157,14 @@ int main()
 			{
 				if (keyPressed(keyState))
 				{
-					if (noteFound->off > noteFound->on)
+					if (noteFound->off >= noteFound->on)
 					{
 						noteFound->on = now;
 						noteFound->active = true;
+					}
+					else
+					{
+						envelope.setTimeOnWithOffset(now, *noteFound);
 					}
 				}
 				else
