@@ -13,13 +13,6 @@ namespace
 	constexpr int WHITE(240);
 }
 
-std::vector<bool> Keyboard::_previousKeyState;
-
-void Keyboard::init(const std::vector<bool>& keys)
-{
-	_previousKeyState = keys;
-}
-
 void Keyboard::draw(const std::vector<bool>& keys)
 {
 	system("cls");
@@ -40,6 +33,8 @@ void Keyboard::draw(const std::vector<bool>& keys)
 	drawHalfTone(keyTable[6], 30, keys[6]);
 	drawHalfTone(keyTable[4], 24, keys[4]);
 	drawHalfTone(keyTable[1], 12, keys[1]);
+
+	gotoxy(0, 0);
 }
 
 void Keyboard::checkStyles()
