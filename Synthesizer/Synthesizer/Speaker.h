@@ -16,6 +16,7 @@ public:
 	~Speaker();
 
 	void play(std::function<float(float)> sampleGenerator);
+	void playFiltredHelicopter(std::function<float()> sampleGenerator, float cutoffFrequency, float resonanceFrequency);
 	inline double getTime() { return _globalTime; };
 
 private:

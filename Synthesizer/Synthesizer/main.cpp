@@ -124,10 +124,10 @@ namespace {
 	auto freq = [](int k) { return constFactor() * pow(2.0f, exponent(k)); };
 	auto Hertz = [](int k) { return OCTAVE_BASE_FREQ * pow(2.0f, exponent(k)); };
 
-	auto SIN =      [](int id, float time) { return std::sin(freq(id) * time); };
-	auto SQUERE =   [](int id, float time) { return SIN(id, time) > 0.0f ? 1.0f : -1.0f; };
+	auto SIN = [](int id, float time) { return std::sin(freq(id) * time); };
+	auto SQUERE = [](int id, float time) { return SIN(id, time) > 0.0f ? 1.0f : -1.0f; };
 	auto TRIANGLE = [](int id, float time) { return std::asin(SIN(id, time)) * (2.0f * PI); };
-	auto SAW =      [](int id, float time) { return (2.0f / PI) * (Hertz(id) * fmod(time, 1.0f / Hertz(id))) - (PI / 2.0f); };
+	auto SAW = [](int id, float time) { return (2.0f / PI) * (Hertz(id) * fmod(time, 1.0f / Hertz(id))) - (PI / 2.0f); };
 }
 
 float sound(float time)
@@ -147,60 +147,84 @@ float sound(float time)
 	return out * 0.1f;
 }
 
+float whiteSound()
+{
+	float out = ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) - 0.5f) * 2.f;
+	return out * 0.1f;
+}
+
 int main()
 {
-	Speaker speaker;
+	std::cout << "1 for Synthesizer, 2 for Helicopter: ";
+	char choose;
+	std::cin >> choose;
+	system("CLS");
 
-	std::vector<bool> keyStates(16, false);
-	Keyboard::draw(keyStates);
-
-	std::thread speakerThread([&speaker]() { speaker.play(&sound); });
-
-	auto keyPressed = [](SHORT keyState) { return keyState & 0x8000; };
-	bool keyStateChanged = false;
-	while (true)
+	if (choose == '1')
 	{
-		keyStateChanged = false;
-		for (int k = 0; k < 16; k++)
+		Speaker speaker;
+
+		std::vector<bool> keyStates(16, false);
+		Keyboard::draw(keyStates);
+
+		std::thread speakerThread([&speaker]() { speaker.play(&sound); });
+
+		auto keyPressed = [](SHORT keyState) { return keyState & 0x8000; };
+		bool keyStateChanged = false;
+		while (true)
 		{
-			auto keyState = GetAsyncKeyState((unsigned char)("ZSXCFVGBNJMK\xbcL\xbe\xbf"[k]));
-			auto now = speaker.getTime();
-			auto noteFound = std::find_if(notes.begin(), notes.end(), [&k](const auto& note) { return note.id == k; });
-			noteLock.lock();
-			bool isKeyPressed = keyPressed(keyState);
-			keyStateChanged = (keyStates[k] != isKeyPressed) or keyStateChanged;
-			keyStates[k] = isKeyPressed;
-			if (noteFound == notes.end())
+			keyStateChanged = false;
+			for (int k = 0; k < 16; k++)
 			{
-				if (isKeyPressed)
+				auto keyState = GetAsyncKeyState((unsigned char)("ZSXCFVGBNJMK\xbcL\xbe\xbf"[k]));
+				auto now = speaker.getTime();
+				auto noteFound = std::find_if(notes.begin(), notes.end(), [&k](const auto& note) { return note.id == k; });
+				noteLock.lock();
+				bool isKeyPressed = keyPressed(keyState);
+				keyStateChanged = (keyStates[k] != isKeyPressed) or keyStateChanged;
+				keyStates[k] = isKeyPressed;
+				if (noteFound == notes.end())
 				{
-					notes.emplace_back(k, now, 0.0, 0.0, true);
-				}
-			}
-			else
-			{
-				if (isKeyPressed)
-				{
-					if (noteFound->off >= noteFound->on)
+					if (isKeyPressed)
 					{
-						noteFound->on = now;
-						noteFound->active = true;
-					}
-					else
-					{
-						envelope.setTimeOnWithOffset(now, *noteFound);
+						notes.emplace_back(k, now, 0.0, 0.0, true);
 					}
 				}
 				else
 				{
-					if (noteFound->off < noteFound->on)
-						noteFound->off = now;
+					if (isKeyPressed)
+					{
+						if (noteFound->off >= noteFound->on)
+						{
+							noteFound->on = now;
+							noteFound->active = true;
+						}
+						else
+						{
+							envelope.setTimeOnWithOffset(now, *noteFound);
+						}
+					}
+					else
+					{
+						if (noteFound->off < noteFound->on)
+							noteFound->off = now;
+					}
 				}
+				noteLock.unlock();
 			}
-			noteLock.unlock();
+			if (keyStateChanged)
+				Keyboard::draw(keyStates);
 		}
-		if(keyStateChanged)
-			Keyboard::draw(keyStates);
+	}
+	else
+	{
+		srand(static_cast <unsigned> (time(0)));
+		Speaker speaker;
+		std::thread speakerThread([&speaker]() { speaker.playFiltredHelicopter(&whiteSound, 400, 4); });
+		while (true)
+		{
+
+		}
 	}
 
 	return 0;
