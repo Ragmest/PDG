@@ -133,6 +133,7 @@
   <ItemGroup>
     <ClCompile Include="AudioFile.cpp" />
     <ClCompile Include="IOUtils.cpp" />
+    <ClCompile Include="Keyboard.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PlotDrawer.cpp" />
     <ClCompile Include="Speaker.cpp" />
@@ -141,6 +142,7 @@
     <ClInclude Include="AudioFile.h" />
     <ClInclude Include="Generator.h" />
     <ClInclude Include="IOUtils.h" />
+    <ClInclude Include="Keyboard.h" />
     <ClInclude Include="PlotDrawer.h" />
     <ClInclude Include="Speaker.h" />
   </ItemGroup>
