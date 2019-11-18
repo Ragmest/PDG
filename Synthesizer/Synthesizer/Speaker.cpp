@@ -85,6 +85,53 @@ void Speaker::play(std::function<float(float)> sampleGenerator)
 	if (err != paNoError) Terminate(err);
 }
 
+void Speaker::playFiltred(std::function<float()> sampleGenerator, float cutoffFrequency, float resonanceFrequency)
+{
+	PaError err;
+	float buffer[FRAMES_PER_BUFFER][2]; /* stereo output buffer */
+
+	err = Pa_StartStream(_stream);
+	if (err != paNoError) Terminate(err);
+
+	float s = std::sin(2 * PI * cutoffFrequency / SAMPLE_RATE);
+	float c = std::cos(2 * PI * cutoffFrequency / SAMPLE_RATE);
+	float alf = s / (2 * resonanceFrequency);
+	float r = 1 / (1 + alf);
+
+	float a0 = 0.5f * (1 - c) * r;
+	float a1 = (1 - c) * r;
+	float a2 = a0;
+	float b1 = -2 * c * r;
+	float b2 = (1 - alf) * r;
+
+	float x1 = sampleGenerator();
+	float x2 = sampleGenerator();
+	float x3 = sampleGenerator();
+	float y1 = 0, y2 = 0;
+
+	while (true)
+	{
+		for (int i = 0; i < FRAMES_PER_BUFFER; i++)
+		{
+			_globalTime += _timeStep;
+			auto generatedSample = a0 * x1 + a1 * x2 + a2 * x3 - b1 * y1 - b2 * y2;
+			x3 = x2;
+			x2 = x1;
+			x1 = sampleGenerator();
+			y2 = y1;
+			y1 = generatedSample;
+			buffer[i][0] = generatedSample;  /* left */
+			buffer[i][1] = generatedSample;  /* right */
+		}
+
+		err = Pa_WriteStream(_stream, buffer, FRAMES_PER_BUFFER);
+		if (err != paNoError) Terminate(err);
+	}
+
+	err = Pa_StopStream(_stream);
+	if (err != paNoError) Terminate(err);
+}
+
 void Speaker::playFiltredHelicopter(std::function<float()> sampleGenerator, float cutoffFrequency, float resonanceFrequency)
 {
 	PaError err;
