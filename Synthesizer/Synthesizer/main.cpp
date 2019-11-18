@@ -10,26 +10,6 @@
 #include <consoleapi.h>
 #include "Keyboard.h"
 
-//void gotoxy(short x, short y)
-//{
-//	HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
-//	COORD position = { x, y };
-//
-//	SetConsoleCursorPosition(hStdout, position);
-//}
-//
-//void drawKey(char c, short offset)
-//{
-//	gotoxy(offset, 0);
-//	std::cout << "  |     |"; gotoxy(offset, 1);
-//	std::cout << "| |     |"; gotoxy(offset, 2);
-//	std::cout << "| |     |"; gotoxy(offset, 3);
-//	std::cout << "| |     |"; gotoxy(offset, 4);
-//	std::cout << "| |  " << c << "  |"; gotoxy(offset, 5);
-//	std::cout << "| |_____|"; gotoxy(offset, 6);
-//	std::cout << "|/_____/"; gotoxy(offset, 7);
-//}
-
 struct EnvelopeS;
 
 struct Note
@@ -53,7 +33,7 @@ struct EnvelopeS
 	double startAmplitude;
 
 	EnvelopeS() :
-		attackTime(0.10),
+		attackTime(0.1),
 		decayTime(0.01),
 		startAmplitude(1.0),
 		sustainAmplitude(0.8),
@@ -105,9 +85,14 @@ struct EnvelopeS
 		note.amplitude = amplitude;
 	}
 
-	void setTimeOnWithOffset(double time, Note& note)
+	double getTimeOnBasedOnAmplitude(double time, Note& note)
 	{
-		note.on = time - (note.amplitude / startAmplitude) * attackTime;
+		return time - (note.amplitude / startAmplitude) * attackTime;
+	}
+
+	double getTimeOffBasedOnAmplitude(double time, Note& note)
+	{
+		return time - ((note.amplitude - sustainAmplitude)/(0.0 - sustainAmplitude)) * releaseTime;
 	}
 };
 
@@ -118,9 +103,14 @@ namespace {
 	std::vector<Note> notes;
 	std::mutex noteLock;
 
+	constexpr float AMPLITUDE(1.0f);
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::uniform_real_distribution<float> dis(-AMPLITUDE, AMPLITUDE);
+
 	constexpr float inverse(float val) { return 1.0f / 12.0f; }
 	constexpr float constFactor() { return OCTAVE_BASE_FREQ * 2.0f * PI; };
-	auto exponent = [](int k) { return static_cast<float>(k - 12)* inverse(12.0f); };
+	auto exponent = [](int k) { return static_cast<float>(k - 14)* inverse(12.0f); };
 	auto freq = [](int k) { return constFactor() * pow(2.0f, exponent(k)); };
 	auto Hertz = [](int k) { return OCTAVE_BASE_FREQ * pow(2.0f, exponent(k)); };
 
@@ -140,7 +130,7 @@ float sound(float time)
 			continue;
 
 		envelope.updateAmplitude(note, time);
-		out += note.amplitude * SQUERE(note.id, time);
+		out += note.amplitude * SAW(note.id, time);
 		out += note.amplitude * SIN(note.id, time);
 	}
 	noteLock.unlock();
@@ -149,8 +139,7 @@ float sound(float time)
 
 float whiteSound()
 {
-	float out = ((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)) - 0.5f) * 2.f;
-	return out * 0.1f;
+	return dis(gen) * 0.1f;
 }
 
 int main()
@@ -181,6 +170,7 @@ int main()
 				auto noteFound = std::find_if(notes.begin(), notes.end(), [&k](const auto& note) { return note.id == k; });
 				noteLock.lock();
 				bool isKeyPressed = keyPressed(keyState);
+				bool isKeyReleased = not keyStates[k] and isKeyPressed;
 				keyStateChanged = (keyStates[k] != isKeyPressed) or keyStateChanged;
 				keyStates[k] = isKeyPressed;
 				if (noteFound == notes.end())
@@ -196,12 +186,8 @@ int main()
 					{
 						if (noteFound->off >= noteFound->on)
 						{
-							noteFound->on = now;
+							noteFound->on = envelope.getTimeOnBasedOnAmplitude(now, *noteFound);
 							noteFound->active = true;
-						}
-						else
-						{
-							envelope.setTimeOnWithOffset(now, *noteFound);
 						}
 					}
 					else
@@ -221,10 +207,7 @@ int main()
 		srand(static_cast <unsigned> (time(0)));
 		Speaker speaker;
 		std::thread speakerThread([&speaker]() { speaker.playFiltredHelicopter(&whiteSound, 400, 4); });
-		while (true)
-		{
-
-		}
+		speakerThread.join();
 	}
 
 	return 0;

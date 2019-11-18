@@ -59,8 +59,6 @@ Speaker::~Speaker()
 	printf("Test finished.\n");
 }
 
-#include <iostream>
-
 void Speaker::play(std::function<float(float)> sampleGenerator)
 {
 	PaError err;
