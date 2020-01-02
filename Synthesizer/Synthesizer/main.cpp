@@ -207,6 +207,7 @@ int main()
 		srand(static_cast <unsigned> (time(0)));
 		Speaker speaker;
 		std::thread speakerThread([&speaker]() { speaker.playFiltredHelicopter(&whiteSound, 400, 4); });
+		//std::thread speakerThread([&speaker]() { speaker.playFiltred(&whiteSound, 400, 4); });
 		speakerThread.join();
 	}
 
