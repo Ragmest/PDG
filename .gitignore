@@ -330,5 +330,4 @@ ASALocalRun/
 .mfractor/
 
 #Project specific - ignore audio and text files
-*.wav
 *.txt
